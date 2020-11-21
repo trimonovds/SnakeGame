@@ -1,10 +1,17 @@
 package com.trimonovds.snakegame.shared
 
-
 class GameEngine(private val settings: GameSettings) {
 
     private var snakeState: SnakeState = SnakeState(arrayOf(Point(0, 0)), Direction.RIGHT)
     private var userDirection: Direction? = null
+
+    fun next(): Array<Array<GameCell>> {
+        var gameCells = emptyArray<Array<GameCell>>()
+        for (row in 0 until settings.fieldSize.height) {
+            gameCells += Array<GameCell>(settings.fieldSize.width) { GameCell.EMPTY }
+        }
+        return gameCells
+    }
 
     fun run() {
         println("Let the game begin!!!")
@@ -51,7 +58,7 @@ private fun Direction.isOpposite(direction: Direction): Boolean {
 private fun SnakeState.isValid(fieldSize: Size): Boolean {
     val firstPoint = this.points.first()
     val isFirstPointInField =
-        firstPoint.x >= 0 && firstPoint.x <= fieldSize.width && firstPoint.y >= 0 && firstPoint.y <= fieldSize.height
+        firstPoint.x >= 0 && firstPoint.x < fieldSize.width && firstPoint.y >= 0 && firstPoint.y < fieldSize.height
     val noIntersectionWithOwnPoints = this.points.toSet().size == this.points.size
     return isFirstPointInField && noIntersectionWithOwnPoints
 }
