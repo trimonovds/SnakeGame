@@ -99,7 +99,7 @@ class GameViewController: UIViewController, GameView, UICollectionViewDelegateFl
     }
     
     deinit {
-        presenter.onDettach()
+        presenter.onDetach()
     }
     
     private var minViewDimension: CGFloat {
@@ -250,6 +250,7 @@ extension GameCell {
         switch self {
         case GameCell.snake: return .black
         case GameCell.empty: return .lightGray
+        case GameCell.food: return .red
         default: fatalError()
         }
     }

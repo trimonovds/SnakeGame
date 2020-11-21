@@ -4,6 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
+import kotlin.random.Random
 
 class GameEngine(private val settings: GameSettings) {
 
@@ -11,12 +12,13 @@ class GameEngine(private val settings: GameSettings) {
         emit(GameState.Playing(emptyList()))
         var finished = false
         val snakePoints = (0..4).map { Point(it, 0) }.reversed()
-        var state = SnakeState(snakePoints, Direction.RIGHT)
+        val food = generateFood(snakePoints, settings.fieldSize)
+        var state = SnakeState(snakePoints, Direction.RIGHT, food)
         while (!finished) {
             emit(GameState.Playing(mapStateToCells(state, settings.fieldSize)))
             delay(500L)
             val direction: Direction? = changeDirectionTaps.value
-            state = state.nextState(direction)
+            state = state.nextState(direction, settings.fieldSize)
             finished = !state.isValid(settings.fieldSize)
         }
         emit(GameState.GameOver)
@@ -29,7 +31,11 @@ class GameEngine(private val settings: GameSettings) {
         for (rowIndex in 0 until fieldSize.height) {
             val row = List<GameCell>(fieldSize.width) { columnIndex ->
                 val point = Point(columnIndex, rowIndex)
-                if (snakePointsSet.contains(point)) GameCell.SNAKE else GameCell.EMPTY
+                if (snakePointsSet.contains(point)) {
+                    GameCell.SNAKE
+                } else {
+                    if (state.food == point) GameCell.FOOD else GameCell.EMPTY
+                }
             }
             cells.add(row)
         }
@@ -37,13 +43,36 @@ class GameEngine(private val settings: GameSettings) {
     }
 }
 
-private fun SnakeState.nextState(userDirection: Direction?): SnakeState {
+private fun generateFood(snakePoints: List<Point>, fieldSize: Size): Point {
+    var points = mutableListOf<Point>()
+    for (rowIndex in 0 until fieldSize.height) {
+        for (columnIndex in 0 until fieldSize.width) {
+            points.add(Point(columnIndex, rowIndex))
+        }
+    }
+    val notSnakePoints = points.toSet().subtract(snakePoints.toSet()).toList()
+    val randomPointIndex = Random.nextInt(notSnakePoints.size)
+    return notSnakePoints[randomPointIndex]
+}
+
+private fun SnakeState.nextState(userDirection: Direction?, fieldSize: Size): SnakeState {
     val nextStateDirection: Direction = nextStateDirection(userDirection)
     val newFirstPoint = points.first().nextByDirection(nextStateDirection)
+    val isFoodEaten = newFirstPoint == this.food
+
     val newPoints = points.toMutableList()
     newPoints.add(0, newFirstPoint)
-    newPoints.removeLast()
-    return this.copy(points = newPoints, direction = nextStateDirection)
+    if (!isFoodEaten) {
+        newPoints.removeLast()
+    }
+
+    val newOrSameFood: Point = if (isFoodEaten) {
+        generateFood(newPoints, fieldSize)
+    } else {
+        this.food
+    }
+
+    return this.copy(points = newPoints, direction = nextStateDirection, food = newOrSameFood)
 }
 
 private fun SnakeState.nextStateDirection(userDirection: Direction?): Direction {
