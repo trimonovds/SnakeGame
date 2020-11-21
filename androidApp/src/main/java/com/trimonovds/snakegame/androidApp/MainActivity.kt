@@ -35,7 +35,7 @@ class MainActivity : AppCompatActivity(), GameView {
     override fun onDestroy() {
         super.onDestroy()
 
-        presenter.onDettach()
+        presenter.onDetach()
     }
 }
 

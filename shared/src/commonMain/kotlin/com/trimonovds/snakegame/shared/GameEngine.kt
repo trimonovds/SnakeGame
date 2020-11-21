@@ -1,90 +1,20 @@
 package com.trimonovds.snakegame.shared
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.flow.*
-
-interface GameViewDelegate {
-    enum class GameViewButton {
-        TOP, BOTTOM, LEFT, RIGHT
-    }
-    fun onDidTapButton(button: GameViewButton)
-    fun onDidTapRestart()
-}
-
-interface GameView {
-    var delegate: GameViewDelegate?
-    fun render(state: GameState)
-}
-
-sealed class GameState {
-    object GameOver: GameState()
-    data class Playing(var cells: List<List<GameCell>>): GameState()
-}
-
-class GamePresenter(cellsInRow: Int = 10): GameViewDelegate {
-
-    private val scope = MainScope()
-    private val engine = GameEngine(GameSettings(Size(cellsInRow,cellsInRow)))
-    private var view: GameView? = null
-    private var job: Job? = null
-
-    fun onAttach(view: GameView) {
-        if (this.view != null) {
-            throw Exception("Only one view can be attached at the moment")
-        }
-        this.view = view
-        view.delegate = this
-        restart(view)
-    }
-
-    fun onDettach() {
-        job?.cancel()
-        view?.delegate = null
-        this.view = null
-    }
-
-    override fun onDidTapButton(button: GameViewDelegate.GameViewButton) {
-        changeDirectionTaps.value = button.getDirection()
-    }
-
-    override fun onDidTapRestart() {
-        view?.let { restart(it) }
-    }
-
-    private fun restart(view: GameView) {
-        job?.cancel()
-        changeDirectionTaps.value = null
-        job = scope.launch(Dispatchers.Main) {
-            engine.run(changeDirectionTaps).collect {
-                view.render(it)
-            }
-        }
-    }
-
-    private val changeDirectionTaps = MutableStateFlow<Direction?>(null)
-
-}
-
-private fun GameViewDelegate.GameViewButton.getDirection(): Direction {
-    return when (this) {
-        GameViewDelegate.GameViewButton.TOP -> Direction.TOP
-        GameViewDelegate.GameViewButton.BOTTOM -> Direction.BOTTOM
-        GameViewDelegate.GameViewButton.LEFT -> Direction.LEFT
-        GameViewDelegate.GameViewButton.RIGHT -> Direction.RIGHT
-    }
-}
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 
 class GameEngine(private val settings: GameSettings) {
 
     fun run(changeDirectionTaps: MutableStateFlow<Direction?>): Flow<GameState> = flow {
         emit(GameState.Playing(emptyList()))
         var finished = false
-        var state = SnakeState(listOf(Point(4, 0), Point(3, 0), Point(2, 0), Point(1, 0), Point(0, 0)), Direction.RIGHT)
+        val snakePoints = (0..4).map { Point(it, 0) }.reversed()
+        var state = SnakeState(snakePoints, Direction.RIGHT)
         while (!finished) {
             emit(GameState.Playing(mapStateToCells(state, settings.fieldSize)))
-            delay(1000L)
+            delay(500L)
             val direction: Direction? = changeDirectionTaps.value
             state = state.nextState(direction)
             finished = !state.isValid(settings.fieldSize)
