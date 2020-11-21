@@ -1,46 +1,126 @@
 package com.trimonovds.snakegame.shared
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.map
 
-class GameEngine(private val settings: GameSettings) {
+interface GameViewDelegate {
+    enum class GameViewButton {
+        TOP, BOTTOM, LEFT, RIGHT
+    }
+    fun onDidTapButton(button: GameViewButton)
+    fun onDidTapRestart()
+}
 
-    private var snakeState: SnakeState = SnakeState(arrayOf(Point(0, 0)), Direction.RIGHT)
-    private var userDirection: Direction? = null
+interface GameView {
+    var delegate: GameViewDelegate?
+    fun render(state: GameState)
+}
 
-    // Array of field rows (size = gameSettings.height, row.size = gameSettings.width)
-    private fun cells(state: SnakeState): Array<Array<GameCell>> {
-        var gameCells = emptyArray<Array<GameCell>>()
-        val snakePointsSet = state.points.toSet()
-        for (rowIndex in 0 until settings.fieldSize.height) {
-            val row = Array<GameCell>(settings.fieldSize.width) { columnIndex ->
-                val point = Point(columnIndex, rowIndex)
-                if (snakePointsSet.contains(point)) GameCell.SNAKE else GameCell.EMPTY
-            }
-            gameCells += row
+sealed class GameState {
+    object GameOver: GameState()
+    data class Playing(var cells: List<List<GameCell>>): GameState()
+}
+
+class GamePresenter(cellsInRow: Int = 10): GameViewDelegate {
+
+    private val scope = MainScope()
+    private val engine = GameEngine(GameSettings(Size(cellsInRow,cellsInRow)))
+    private var view: GameView? = null
+    private var job: Job? = null
+
+    fun onAttach(view: GameView) {
+        if (this.view != null) {
+            throw Exception("Only one view can be attached at the moment")
         }
-        return gameCells
+        this.view = view
+        view.delegate = this
+        restart(view)
     }
 
-    suspend fun run() {
-        println("Let the game begin!!!")
-        var finished = false
-        while (!finished) {
-            delay(1000L)
-            println("Snake: ${snakeState.points.joinToString(", ")}")
-            val gameCells = cells(snakeState)
-            debugPrint(gameCells)
+    fun onDettach() {
+        job?.cancel()
+        view?.delegate = null
+        this.view = null
+    }
 
-            snakeState = snakeState.nextState(userDirection)
-            finished = !snakeState.isValid(settings.fieldSize)
+    override fun onDidTapButton(button: GameViewDelegate.GameViewButton) {
+        engine.changeDirection(button.getDirection())
+    }
+
+    override fun onDidTapRestart() {
+        view?.let { restart(it) }
+    }
+
+    private fun restart(view: GameView) {
+        job?.cancel()
+        job = scope.launch(Dispatchers.Main) {
+            view.render(GameState.Playing(cells = emptyList()))
+            launch {
+                engine.gameCells.collect {
+                    view.render(GameState.Playing(cells = it))
+                }
+            }
+            engine.run()
+            view.render(GameState.GameOver)
         }
-        println("You lose")
+    }
+
+}
+
+private fun GameViewDelegate.GameViewButton.getDirection(): Direction {
+    return when (this) {
+        GameViewDelegate.GameViewButton.TOP -> Direction.TOP
+        GameViewDelegate.GameViewButton.BOTTOM -> Direction.BOTTOM
+        GameViewDelegate.GameViewButton.LEFT -> Direction.LEFT
+        GameViewDelegate.GameViewButton.RIGHT -> Direction.RIGHT
     }
 }
 
-private fun debugPrint(gameCells: Array<Array<GameCell>>) {
-    println("=== Game field ===")
-    for (rowElement in gameCells.withIndex()) {
-        println("Row: ${rowElement.index}: " + rowElement.value.joinToString(", "))
+class GameEngine(private val settings: GameSettings) {
+
+    private val initialSnakeState = SnakeState(listOf(Point(4, 0), Point(3, 0), Point(2, 0), Point(1, 0), Point(0, 0)), Direction.RIGHT)
+    private val initialSnakeDirection: Direction? = null
+
+    private val userDirectionFlow = MutableStateFlow(initialSnakeDirection)
+    private val snakeStateFlow = MutableStateFlow(initialSnakeState)
+
+    val gameCells: Flow<List<List<GameCell>>>
+        get() {
+            return snakeStateFlow.map { mapStateToCells(it, settings.fieldSize) }
+        }
+
+    suspend fun run() {
+        var finished = false
+        userDirectionFlow.value = initialSnakeDirection
+        snakeStateFlow.value = initialSnakeState
+        while (!finished) {
+            delay(1000L)
+            val snakeState = snakeStateFlow.value
+            snakeStateFlow.value = snakeState.nextState(userDirectionFlow.value)
+            userDirectionFlow.value = null
+            finished = !snakeState.isValid(settings.fieldSize)
+        }
+    }
+
+    fun changeDirection(newDirection: Direction) {
+        userDirectionFlow.value = newDirection
+    }
+
+    // Array of field rows (size = gameSettings.height, row.size = gameSettings.width)
+    private fun mapStateToCells(state: SnakeState, fieldSize: Size): List<List<GameCell>> {
+        var cells: MutableList<List<GameCell>> = mutableListOf()
+        val snakePointsSet = state.points.toSet()
+        for (rowIndex in 0 until fieldSize.height) {
+            val row = List<GameCell>(fieldSize.width) { columnIndex ->
+                val point = Point(columnIndex, rowIndex)
+                if (snakePointsSet.contains(point)) GameCell.SNAKE else GameCell.EMPTY
+            }
+            cells.add(row)
+        }
+        return cells
     }
 }
 
@@ -50,7 +130,7 @@ private fun SnakeState.nextState(userDirection: Direction?): SnakeState {
     val newPoints = points.toMutableList()
     newPoints.add(0, newFirstPoint)
     newPoints.removeLast()
-    return this.copy(points = newPoints.toTypedArray())
+    return this.copy(points = newPoints, direction = nextStateDirection)
 }
 
 private fun SnakeState.nextStateDirection(userDirection: Direction?): Direction {
