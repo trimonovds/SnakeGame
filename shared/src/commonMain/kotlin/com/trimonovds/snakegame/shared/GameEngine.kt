@@ -1,5 +1,7 @@
 package com.trimonovds.snakegame.shared
 
+import kotlinx.coroutines.*
+
 class GameEngine(private val settings: GameSettings) {
 
     private var snakeState: SnakeState = SnakeState(arrayOf(Point(0, 0)), Direction.RIGHT)
@@ -19,10 +21,11 @@ class GameEngine(private val settings: GameSettings) {
         return gameCells
     }
 
-    fun run() {
+    suspend fun run() {
         println("Let the game begin!!!")
         var finished = false
         while (!finished) {
+            delay(1000L)
             println("Snake: ${snakeState.points.joinToString(", ")}")
             val gameCells = cells(snakeState)
             debugPrint(gameCells)

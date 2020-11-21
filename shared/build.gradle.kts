@@ -23,8 +23,15 @@ kotlin {
             }
         }
     }
+
+    val coroutinesVersion = "1.3.9-native-mt"
+
     sourceSets {
-        val commonMain by getting
+        val commonMain by getting {
+            dependencies {
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:$coroutinesVersion")
+            }
+        }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test-common"))
