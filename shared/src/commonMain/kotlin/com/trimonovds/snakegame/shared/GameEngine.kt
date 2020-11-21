@@ -5,10 +5,16 @@ class GameEngine(private val settings: GameSettings) {
     private var snakeState: SnakeState = SnakeState(arrayOf(Point(0, 0)), Direction.RIGHT)
     private var userDirection: Direction? = null
 
-    fun next(): Array<Array<GameCell>> {
+    // Array of field rows (size = gameSettings.height, row.size = gameSettings.width)
+    private fun cells(state: SnakeState): Array<Array<GameCell>> {
         var gameCells = emptyArray<Array<GameCell>>()
-        for (row in 0 until settings.fieldSize.height) {
-            gameCells += Array<GameCell>(settings.fieldSize.width) { GameCell.EMPTY }
+        val snakePointsSet = state.points.toSet()
+        for (rowIndex in 0 until settings.fieldSize.height) {
+            val row = Array<GameCell>(settings.fieldSize.width) { columnIndex ->
+                val point = Point(columnIndex, rowIndex)
+                if (snakePointsSet.contains(point)) GameCell.SNAKE else GameCell.EMPTY
+            }
+            gameCells += row
         }
         return gameCells
     }
@@ -18,10 +24,20 @@ class GameEngine(private val settings: GameSettings) {
         var finished = false
         while (!finished) {
             println("Snake: ${snakeState.points.joinToString(", ")}")
+            val gameCells = cells(snakeState)
+            debugPrint(gameCells)
+
             snakeState = snakeState.nextState(userDirection)
             finished = !snakeState.isValid(settings.fieldSize)
         }
         println("You lose")
+    }
+}
+
+private fun debugPrint(gameCells: Array<Array<GameCell>>) {
+    println("=== Game field ===")
+    for (rowElement in gameCells.withIndex()) {
+        println("Row: ${rowElement.index}: " + rowElement.value.joinToString(", "))
     }
 }
 

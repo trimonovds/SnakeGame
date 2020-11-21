@@ -8,7 +8,7 @@ import com.trimonovds.snakegame.shared.GameSettings
 import com.trimonovds.snakegame.shared.Size
 
 class MainActivity : AppCompatActivity() {
-    private val gameEngine: GameEngine = GameEngine(GameSettings(Size(10, 10)))
+    private val gameEngine: GameEngine = GameEngine(GameSettings(Size(5, 5)))
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
