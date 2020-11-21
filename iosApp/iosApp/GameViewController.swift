@@ -210,7 +210,7 @@ class GameOverView: UIView {
         NSLayoutConstraint.activate([
             textLabel.centerXAnchor.constraint(equalTo: self.centerXAnchor),
             textLabel.centerYAnchor.constraint(equalTo: self.centerYAnchor),
-            retryButton.topAnchor.constraint(equalTo: textLabel.topAnchor, constant: 16),
+            retryButton.topAnchor.constraint(equalTo: textLabel.bottomAnchor, constant: 16),
             retryButton.centerXAnchor.constraint(equalTo: self.centerXAnchor)
         ])
     }

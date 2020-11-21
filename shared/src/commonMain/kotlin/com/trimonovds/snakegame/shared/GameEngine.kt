@@ -1,10 +1,9 @@
 package com.trimonovds.snakegame.shared
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.flow.*
 
 interface GameViewDelegate {
     enum class GameViewButton {
@@ -47,7 +46,7 @@ class GamePresenter(cellsInRow: Int = 10): GameViewDelegate {
     }
 
     override fun onDidTapButton(button: GameViewDelegate.GameViewButton) {
-        engine.changeDirection(button.getDirection())
+        changeDirectionTaps.value = button.getDirection()
     }
 
     override fun onDidTapRestart() {
@@ -56,17 +55,15 @@ class GamePresenter(cellsInRow: Int = 10): GameViewDelegate {
 
     private fun restart(view: GameView) {
         job?.cancel()
+        changeDirectionTaps.value = null
         job = scope.launch(Dispatchers.Main) {
-            view.render(GameState.Playing(cells = emptyList()))
-            launch {
-                engine.gameCells.collect {
-                    view.render(GameState.Playing(cells = it))
-                }
+            engine.run(changeDirectionTaps).collect {
+                view.render(it)
             }
-            engine.run()
-            view.render(GameState.GameOver)
         }
     }
+
+    private val changeDirectionTaps = MutableStateFlow<Direction?>(null)
 
 }
 
@@ -81,32 +78,18 @@ private fun GameViewDelegate.GameViewButton.getDirection(): Direction {
 
 class GameEngine(private val settings: GameSettings) {
 
-    private val initialSnakeState = SnakeState(listOf(Point(4, 0), Point(3, 0), Point(2, 0), Point(1, 0), Point(0, 0)), Direction.RIGHT)
-    private val initialSnakeDirection: Direction? = null
-
-    private val userDirectionFlow = MutableStateFlow(initialSnakeDirection)
-    private val snakeStateFlow = MutableStateFlow(initialSnakeState)
-
-    val gameCells: Flow<List<List<GameCell>>>
-        get() {
-            return snakeStateFlow.map { mapStateToCells(it, settings.fieldSize) }
-        }
-
-    suspend fun run() {
+    fun run(changeDirectionTaps: MutableStateFlow<Direction?>): Flow<GameState> = flow {
+        emit(GameState.Playing(emptyList()))
         var finished = false
-        userDirectionFlow.value = initialSnakeDirection
-        snakeStateFlow.value = initialSnakeState
+        var state = SnakeState(listOf(Point(4, 0), Point(3, 0), Point(2, 0), Point(1, 0), Point(0, 0)), Direction.RIGHT)
         while (!finished) {
+            emit(GameState.Playing(mapStateToCells(state, settings.fieldSize)))
             delay(1000L)
-            val snakeState = snakeStateFlow.value
-            snakeStateFlow.value = snakeState.nextState(userDirectionFlow.value)
-            userDirectionFlow.value = null
-            finished = !snakeState.isValid(settings.fieldSize)
+            val direction: Direction? = changeDirectionTaps.value
+            state = state.nextState(direction)
+            finished = !state.isValid(settings.fieldSize)
         }
-    }
-
-    fun changeDirection(newDirection: Direction) {
-        userDirectionFlow.value = newDirection
+        emit(GameState.GameOver)
     }
 
     // Array of field rows (size = gameSettings.height, row.size = gameSettings.width)
