@@ -107,7 +107,7 @@ class GameViewController: UIViewController, GameView, UICollectionViewDelegateFl
     }
     
     private static let ri = "Cell"
-    private static let cellsInRow: Int32 = 20
+    private static let cellsInRow: Int32 = 10
     private let presenter = GamePresenter(cellsInRow: GameViewController.cellsInRow)
     private var ds: [[GameCell]] = []
     private var gameOverView: GameOverView!
@@ -234,6 +234,15 @@ class GameUICollectionViewCell: UICollectionViewCell {
         contentView.layer.borderColor = UIColor.black.cgColor
         contentView.layer.borderWidth = 1
         contentView.layer.cornerRadius = 2
+        
+        contentView.addSubview(imageView)
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: contentView.topAnchor),
+            imageView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            imageView.leftAnchor.constraint(equalTo: contentView.leftAnchor),
+            imageView.rightAnchor.constraint(equalTo: contentView.rightAnchor)
+        ])
     }
     
     required init?(coder: NSCoder) {
@@ -242,13 +251,30 @@ class GameUICollectionViewCell: UICollectionViewCell {
     
     func update(with data: GameCell) {
         contentView.backgroundColor = data.color
+        switch data {
+        case GameCell.snakeHead:
+            imageView.image = UIImage(named: "pigeon_face")
+            imageView.alpha = 1.0
+        case GameCell.snakeBody:
+            imageView.image = nil
+            imageView.alpha = 0.0
+        case GameCell.empty:
+            imageView.image = nil
+            imageView.alpha = 0.0
+        case GameCell.food:
+            imageView.image = UIImage(named: "kostya_face")
+            imageView.alpha = 1.0
+        default: fatalError()
+        }
     }
+    
+    private let imageView = UIImageView()
 }
 
 extension GameCell {
     var color: UIColor {
         switch self {
-        case GameCell.snake: return .black
+        case GameCell.snakeBody, GameCell.snakeHead: return .black
         case GameCell.empty: return .lightGray
         case GameCell.food: return .red
         default: fatalError()
