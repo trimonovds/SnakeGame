@@ -1,5 +1,5 @@
 package com.trimonovds.snakegame.shared
 
 enum class GameCell {
-    SNAKE, EMPTY, FOOD
+    SNAKE_BODY, SNAKE_HEAD, EMPTY, FOOD
 }

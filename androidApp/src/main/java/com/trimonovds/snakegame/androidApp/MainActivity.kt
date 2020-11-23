@@ -1,33 +1,60 @@
 package com.trimonovds.snakegame.androidApp
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
-import android.widget.TextView
-import com.trimonovds.snakegame.shared.*
+import android.widget.Button
+import androidx.appcompat.app.AppCompatActivity
+import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.trimonovds.snakegame.shared.GamePresenter
+import com.trimonovds.snakegame.shared.GameState
+import com.trimonovds.snakegame.shared.GameView
+import com.trimonovds.snakegame.shared.GameViewDelegate
 
 class MainActivity : AppCompatActivity(), GameView {
-    private val presenter = GamePresenter()
-    private var _delegate: GameViewDelegate? = null
 
-    override var delegate: GameViewDelegate?
-        get() = _delegate
-        set(value) {
-            _delegate = value
-        }
+    companion object {
+        const val numberOfColumns: Int = 10
+    }
+
+    private val presenter = GamePresenter(numberOfColumns)
+    private val adapter: GameFieldRecyclerViewAdapter by lazy {
+        GameFieldRecyclerViewAdapter(this)
+    }
+
+    override var delegate: GameViewDelegate? = null
 
     override fun render(state: GameState) {
-        when (state) {
-            is GameState.GameOver -> println("Game over")
-            is GameState.Playing -> debugPrint(state.cells)
+        val cells = when (state) {
+            is GameState.GameOver -> emptyList()
+            is GameState.Playing -> state.cells.flatten()
         }
+        adapter.updateCells(cells)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val tv: TextView = findViewById(R.id.text_view)
-        tv.text = "Snake game"
+        val recyclerView: RecyclerView = findViewById(R.id.rvGameField)
+        recyclerView.layoutManager = GridLayoutManager(this, numberOfColumns)
+        recyclerView.adapter = adapter
+
+        val upButton = findViewById<Button>(R.id.button_up)
+        val downButton = findViewById<Button>(R.id.button_down)
+        val leftButton = findViewById<Button>(R.id.button_left)
+        val rightButton = findViewById<Button>(R.id.button_right)
+        upButton.setOnClickListener {
+            delegate?.onDidTapButton(GameViewDelegate.GameViewButton.TOP)
+        }
+        downButton.setOnClickListener {
+            delegate?.onDidTapButton(GameViewDelegate.GameViewButton.BOTTOM)
+        }
+        leftButton.setOnClickListener {
+            delegate?.onDidTapButton(GameViewDelegate.GameViewButton.LEFT)
+        }
+        rightButton.setOnClickListener {
+            delegate?.onDidTapButton(GameViewDelegate.GameViewButton.RIGHT)
+        }
 
         presenter.onAttach(this)
     }
@@ -37,11 +64,5 @@ class MainActivity : AppCompatActivity(), GameView {
 
         presenter.onDetach()
     }
-}
 
-private fun debugPrint(gameCells: List<List<GameCell>>) {
-    println("=== Game field ===")
-    for (rowElement in gameCells.withIndex()) {
-        println("Row: ${rowElement.index}: " + rowElement.value.joinToString(", "))
-    }
 }

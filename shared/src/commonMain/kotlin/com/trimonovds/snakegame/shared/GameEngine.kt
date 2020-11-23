@@ -27,12 +27,13 @@ class GameEngine(private val settings: GameSettings) {
     // Array of field rows (size = gameSettings.height, row.size = gameSettings.width)
     private fun mapStateToCells(state: SnakeState, fieldSize: Size): List<List<GameCell>> {
         var cells: MutableList<List<GameCell>> = mutableListOf()
+        val snakeFirstPoint = state.points.first()
         val snakePointsSet = state.points.toSet()
         for (rowIndex in 0 until fieldSize.height) {
             val row = List<GameCell>(fieldSize.width) { columnIndex ->
                 val point = Point(columnIndex, rowIndex)
                 if (snakePointsSet.contains(point)) {
-                    GameCell.SNAKE
+                    if (snakeFirstPoint == point) GameCell.SNAKE_HEAD else GameCell.SNAKE_BODY
                 } else {
                     if (state.food == point) GameCell.FOOD else GameCell.EMPTY
                 }
